@@ -1,207 +1,379 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ตารางกิจกรรมสร้างสรรค์</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: [Warm Neutrals (Stone/White) with Subtle Teal Accents] --><!-- Application Structure Plan: [ออกแบบเป็น SPA โดยมีระบบนำทางหลัก 3 ส่วน: 'ทักษะที่เด็กจะได้รับ' (คุณประโยชน์), 'ปฏิทินกิจกรรม' (สรุปและไทม์ไลน์) และ 'สอนใจกิจกรรม' (ข้อคิด/แรงบันดาลใจ) ส่วนทักษะถูกตั้งเป็นหน้าเริ่มต้น เนื้อหาปฏิทินใช้โครงสร้างไทม์ไลน์ การ์ดกิจกรรมเปิด Modal ที่มีฟีเจอร์ AI (LLM & TTS) ส่วนทักษะ/ข้อคิดใช้โครงสร้าง Grid] --><!-- Visualization & Content Choices: [1. Report Info: กิจกรรมทั้งหมด Goal: สรุป Viz/Method: Donut Chart (Chart.js/Canvas) Interaction: Tooltip เมื่อวางเมาส์ Justification: ให้ภาพรวมอย่างรวดเร็วของ 'ความสมดุล' ของประเภทกิจกรรม ซึ่งไม่ชัดเจนจากตาราง 2. Report Info: รายการกิจกรรม 9 รายการ Goal: จัดระเบียบ/แจ้งข้อมูล Viz/Method: Timeline Card Layout (HTML/Tailwind) Interaction: กรองตามเดือนด้วย JS และเปิด Modal ด้วย JS เมื่อคลิก Justification: แสดงความต่อเนื่องตามลำดับเวลาและดีกว่าตารางคงที่ 3. Report Info: รายละเอียดกิจกรรม (วัตถุประสงค์, คำศัพท์) Goal: แจ้งข้อมูล (เมื่อต้องการ) Viz/Method: บล็อกข้อความภายใน Modal (HTML/Tailwind) Interaction: LLM Expansion (Gemini Flash) และ TTS (Gemini TTS) Justification: เพิ่มมูลค่าด้วย AI ในการอธิบายเชิงลึกและฝึกภาษา] --><!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. --><style>
-        body {
-            font-family: 'Kanit', sans-serif;
-            scroll-behavior: smooth;
-        }
-        .chart-container {
-            position: relative;
-            width: 100%;
-            max-width: 400px;
-            margin-left: auto;
-            margin-right: auto;
-            height: 300px;
-            max-height: 350px;
-        }
-        .modal-content {
-            max-height: 80vh;
-        }
-        .filter-btn.active {
-            background-color: #0d9488; /* teal-700 */
-            color: white;
-        }
-        .filter-btn:not(.active) {
-            background-color: #f5f5f4; /* stone-100 */
-            color: #57534e; /* stone-600 */
-        }
-        .section-btn.active {
-            background-color: #0d9488 !important;
-            color: white !important;
-            border-color: #0d9488 !important;
-        }
-        
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #0d9488;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ตารางกิจกรรมสร้างสรรค์</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Kanit', sans-serif; scroll-behavior: smooth; }
+    .chart-container { position: relative; width: 100%; max-width: 420px; margin: 0 auto; height: 300px; max-height: 360px; }
+    .modal-content { max-height: 80vh; }
+    .filter-btn.active { background-color: #0d9488; color: #fff; }
+    .filter-btn:not(.active) { background-color: #f5f5f4; color: #57534e; }
+    .section-btn.active { background-color: #0d9488 !important; color: #fff !important; border-color: #0d9488 !important; }
+    .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #0d9488; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
 
-        /* --- Timeline Styles --- */
-        #activity-grid {
-            position: relative;
-            padding-left: 20px; /* Space for the line on mobile */
-            padding-right: 20px;
-        }
-
-        /* Vertical line for the timeline (Desktop) */
-        #activity-grid::before {
-            content: '';
-            position: absolute;
-            left: 50%; /* Center the line */
-            top: 0;
-            bottom: 0;
-            width: 4px;
-            background-color: #cbd5e1; /* stone-300 */
-            margin-left: -2px;
-            z-index: 0;
-        }
-
-        /* Mobile: Line on the left side */
-        @media (max-width: 767px) {
-            #activity-grid::before {
-                left: 20px; 
-            }
-        }
-        
-        .timeline-item {
-            position: relative;
-            z-index: 1;
-            margin-bottom: 40px;
-            display: flex;
-            align-items: center;
-        }
-
-        .timeline-dot {
-            position: absolute;
-            top: 50%;
-            width: 16px;
-            height: 16px;
-            background-color: #0d9488; /* teal-700 */
-            border-radius: 50%;
-            transform: translateY(-50%);
-            border: 3px solid #f5f5f4; /* stone-100 */
-        }
-
-        /* Desktop: Position dots on the center line */
-        @media (min-width: 768px) {
-            .timeline-item .timeline-dot {
-                left: 50%;
-                transform: translate(-50%, -50%);
-            }
-        }
-        
-        /* Mobile: Position dots on the left line */
-        @media (max-width: 767px) {
-            .timeline-item .timeline-dot {
-                left: 20px; 
-                transform: translateY(-50%) translateX(-50%);
-            }
-        }
-
-        .timeline-content {
-            width: 100%;
-            padding: 0 1rem; /* Base padding for mobile */
-        }
-        
-        /* Desktop Content Positioning */
-        @media (min-width: 768px) {
-            .timeline-content {
-                width: 50%;
-                padding: 0;
-            }
-            /* Left side content pushes dot to the right */
-            .timeline-item.left .timeline-content {
-                padding-right: 3rem; 
-                margin-right: 50%; /* Pushes content to the left side */
-            }
-            /* Right side content pushes dot to the left */
-            .timeline-item.right .timeline-content {
-                padding-left: 3rem;
-                margin-left: 50%; /* Pushes content to the right side */
-            }
-        }
-        
-        /* Mobile Content Positioning: All on the right of the line */
-        @media (max-width: 767px) {
-            .timeline-content {
-                margin-left: 40px; /* Offset to the right of the line */
-                width: 100%;
-                padding: 0 0 0 1rem;
-            }
-        }
-    </style>
+    /* --- Timeline Styles --- */
+    #activity-grid { position: relative; padding-left: 20px; padding-right: 20px; }
+    #activity-grid::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; background-color: #cbd5e1; margin-left: -2px; z-index: 0; }
+    @media (max-width: 767px) { #activity-grid::before { left: 20px; } }
+    .timeline-item { position: relative; z-index: 1; margin-bottom: 40px; display: flex; align-items: center; }
+    .timeline-dot { position: absolute; top: 50%; width: 16px; height: 16px; background-color: #0d9488; border-radius: 50%; transform: translateY(-50%); border: 3px solid #f5f5f4; }
+    @media (min-width: 768px) { .timeline-item .timeline-dot { left: 50%; transform: translate(-50%, -50%); } }
+    @media (max-width: 767px) { .timeline-item .timeline-dot { left: 20px; transform: translate(-50%, -50%); } }
+    .timeline-content { width: 100%; padding: 0 1rem; }
+    @media (min-width: 768px) {
+      .timeline-content { width: 50%; padding: 0; }
+      .timeline-item.left .timeline-content { padding-right: 3rem; margin-right: 50%; }
+      .timeline-item.right .timeline-content { padding-left: 3rem; margin-left: 50%; }
+    }
+    @media (max-width: 767px) { .timeline-content { margin-left: 40px; width: 100%; padding: 0 0 0 1rem; } }
+  </style>
 </head>
 <body class="bg-stone-50 text-stone-800">
+  <div class="container mx-auto p-4 py-8 md:p-12">
+    <header class="text-center mb-10">
+      <h1 class="text-3xl md:text-4xl font-bold text-teal-700 mb-4">สร้างสรรค์และเสริมทักษะภาษาอังกฤษผ่านกิจกรรม</h1>
+      <p class="text-lg text-stone-600 max-w-2xl mx-auto">
+        การเรียนภาษาอังกฤษผ่านกิจกรรมช่วยให้พัฒนาทักษะด้านต่าง ๆ ได้อย่างเป็นธรรมชาติ สนุกสนาน และยั่งยืนกว่าการเรียนแบบท่องจำ อีกทั้งยังเสริมความมั่นใจในการสื่อสารและการทำงานร่วมกับผู้อื่น
+      </p>
+    </header>
 
-    <div class="container mx-auto p-4 py-8 md:p-12">
+    <!-- Tabs -->
+    <div class="flex justify-center mb-10 gap-3 flex-wrap">
+      <button data-section="calendar" class="section-btn text-lg font-semibold py-2 px-6 rounded-lg transition-all duration-300 shadow-md bg-white text-teal-700 border border-teal-700 hover:bg-teal-50 active">กิจกรรมของเรา</button>
+      <button data-section="skills" class="section-btn text-lg font-semibold py-2 px-6 rounded-lg transition-all duration-300 shadow-md bg-white text-teal-700 border border-teal-700 hover:bg-teal-50">ทักษะที่เด็กจะได้รับ</button>
+      <button data-section="contact" class="section-btn text-lg font-semibold py-2 px-6 rounded-lg transition-all duration-300 shadow-md bg-white text-teal-700 border border-teal-700 hover:bg-teal-50">ติดต่อเรา</button>
+    </div>
 
-        <header class="text-center mb-10">
-            <h1 class="text-3xl md:text-4xl font-bold text-teal-700 mb-4">สร้างสรรค์และเสริมทักษะภาษาอังกฤษผ่านกิจกรรม</h1>
-            <p class="text-lg text-stone-600 max-w-2xl mx-auto">
-                การเรียนภาษาอังกฤษผ่านกิจกรรมช่วยให้พัฒนาทักษะด้านต่าง ๆ ได้อย่างเป็นธรรมชาติ สนุกสนาน และยั่งยืนกว่าการเรียนแบบท่องจำ เพราะช่วยลดความกดดันและทำให้ผู้เรียนรู้สึกมีส่วนร่วม นอกจากนี้ยังเสริมสร้างทักษะการคิดวิเคราะห์ การแก้ปัญหา การทำงานร่วมกับผู้อื่น และเพิ่มความมั่นใจในการสื่อสาร
-            </p>
-        </header>
-
-        <!-- Main Navigation Tabs --><div class="flex justify-center mb-10 space-x-4 flex-wrap">
-            <button data-section="calendar" class="section-btn text-lg font-semibold py-2 px-6 rounded-lg transition-all duration-300 shadow-md bg-white text-teal-700 border border-teal-700 hover:bg-teal-50 active">
-                กิจกรรมของเรา
-            </button>
-            <button data-section="skills" class="section-btn text-lg font-semibold py-2 px-6 rounded-lg transition-all duration-300 shadow-md bg-white text-teal-700 border border-teal-700 hover:bg-teal-50">
-                ทักษะที่เด็กจะได้รับ
-            </button>
-            <button data-section="morals" class="section-btn text-lg font-semibold py-2 px-6 rounded-lg transition-all duration-300 shadow-md bg-white text-teal-700 border border-teal-700 hover:bg-teal-50 mt-2 md:mt-0">
-                ติดต่อเรา
-            </button>
+    <!-- Switchable content -->
+    <div id="main-content-container">
+      <!-- CALENDAR SECTION -->
+      <section id="calendar-view" class="space-y-10">
+        <!-- Summary & Donut Chart -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+          <div>
+            <h2 class="text-2xl md:text-3xl font-bold text-teal-700 mb-3">สรุปภาพรวมกิจกรรม</h2>
+            <p class="text-stone-600">ดูความสมดุลของประเภทกิจกรรมและจำนวนในช่วงเดือนที่เลือก เพื่อวางแผนให้ครอบคลุมทั้งทักษะภาษา ความคิดสร้างสรรค์ และการทำงานเป็นทีม</p>
+            <div class="mt-6 flex flex-wrap items-center gap-3">
+              <label class="font-semibold">เลือกเดือน:</label>
+              <select id="month-filter" class="filter-btn active rounded-md px-3 py-2 border border-stone-300">
+                <option value="all">ทั้งหมด</option>
+              </select>
+              <button id="reset-filter" class="rounded-md px-3 py-2 border border-stone-300 hover:bg-stone-100">ล้างตัวกรอง</button>
+            </div>
+          </div>
+          <div>
+            <div class="chart-container">
+              <canvas id="donutChart" aria-label="Donut chart of activity types" role="img"></canvas>
+            </div>
+          </div>
         </div>
 
-        <!-- Main Content Container for Switching --><div id="main-content-container">
-            
-            <!-- 1. SKILLS SECTION --><div id="skills-view" class="hidden py-4">
-                <h2 class="text-3xl font-bold text-teal-700 text-center mb-8">ทักษะที่เด็กจะได้รับ</h2>
-                <p class="text-lg text-stone-600 text-center max-w-3xl mx-auto mb-10">
-                    กิจกรรมของเราถูกออกแบบมาเพื่อพัฒนาทักษะที่จำเป็นรอบด้าน ควบคู่ไปกับการเรียนรู้ภาษาอังกฤษอย่างเป็นธรรมชาติและสนุกสนาน
-                </p>
+        <!-- Timeline -->
+        <div>
+          <h3 class="text-xl font-bold text-stone-700 mb-4">ไทม์ไลน์กิจกรรม</h3>
+          <div id="activity-grid"></div>
+        </div>
+      </section>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 transform hover:scale-[1.02] transition-transform duration-300">
-                        <div class="text-4xl text-teal-500 mb-4">🗣️</div>
-                        <h3 class="text-xl font-bold text-stone-800 mb-2">พัฒนาทักษะรอบด้าน</h3>
-                        <p class="text-stone-600 text-base">
-                            ช่วยให้ผู้เรียนพัฒนาทักษะการฟัง พูด อ่าน เขียน และการสื่อสารได้อย่างมีประสิทธิภาพ
-                        </p>
-                    </div>
+      <!-- SKILLS SECTION -->
+      <section id="skills-view" class="hidden py-4">
+        <h2 class="text-3xl font-bold text-teal-700 text-center mb-8">ทักษะที่เด็กจะได้รับ</h2>
+        <p class="text-lg text-stone-600 text-center max-w-3xl mx-auto mb-10">กิจกรรมถูกออกแบบให้พัฒนาภาษาอังกฤษควบคู่กับทักษะชีวิตอย่างรอบด้าน</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 transition-transform duration-300 hover:scale-[1.02]">
+            <div class="text-4xl mb-4">🗣️</div>
+            <h3 class="text-xl font-bold mb-2">ทักษะการสื่อสาร (ฟัง–พูด–อ่าน–เขียน)</h3>
+            <p class="text-stone-600">เวิร์กช็อปบทสนทนา เกมคำศัพท์ และการเล่าเรื่อง ช่วยฝึกภาษาแบบเป็นธรรมชาติ</p>
+          </div>
+          <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 transition-transform duration-300 hover:scale-[1.02]">
+            <div class="text-4xl mb-4">🎯</div>
+            <h3 class="text-xl font-bold mb-2">การคิดวิเคราะห์ & การแก้ปัญหา</h3>
+            <p class="text-stone-600">โจทย์ภารกิจและโปรเจกต์เล็ก ๆ กระตุ้นให้ตั้งสมมติฐาน วางแผน และสรุปบทเรียน</p>
+          </div>
+          <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 transition-transform duration-300 hover:scale-[1.02]">
+            <div class="text-4xl mb-4">🤝</div>
+            <h3 class="text-xl font-bold mb-2">การทำงานเป็นทีม & ภาวะผู้นำ</h3>
+            <p class="text-stone-600">กิจกรรมกลุ่มผลัดกันนำ–ตาม สื่อสารเป้าหมาย และสะท้อนผลหลังจบกิจกรรม</p>
+          </div>
+          <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 transition-transform duration-300 hover:scale-[1.02]">
+            <div class="text-4xl mb-4">🧠</div>
+            <h3 class="text-xl font-bold mb-2">ความคิดสร้างสรรค์ & คำศัพท์เชิงบริบท</h3>
+            <p class="text-stone-600">สร้างสรรค์สื่อ/เรื่องเล่า ใช้คำศัพท์ในสถานการณ์จริงเพื่อให้จำได้นาน</p>
+          </div>
+          <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 transition-transform duration-300 hover:scale-[1.02]">
+            <div class="text-4xl mb-4">🌍</div>
+            <h3 class="text-xl font-bold mb-2">วัฒนธรรม & ความเข้าใจความต่าง</h3>
+            <p class="text-stone-600">กิจกรรม themed day รู้จักสำเนียง/วัฒนธรรมต่างประเทศอย่างเคารพ</p>
+          </div>
+          <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 transition-transform duration-300 hover:scale-[1.02]">
+            <div class="text-4xl mb-4">💪</div>
+            <h3 class="text-xl font-bold mb-2">ความมั่นใจ & การนำเสนอ</h3>
+            <p class="text-stone-600">ฝึกพรีเซนต์สั้น ๆ (show & tell) และรับคำแนะนำเชิงบวก (positive feedback)</p>
+          </div>
+        </div>
+      </section>
 
-                    <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 transform hover:scale-[1.02] transition-transform duration-300">
-                        <div class="text-4xl text-teal-500 mb-4">🎯</div>
-                        <h3 class="text-xl font-bold text-stone-800 mb-2">กระตุ้นการเรียนรู้</h3>
-                        <p class="text-stone-600 text-base">
-                            กิจกรรมช่วยดึงดูดความสนใจและทำให้ผู้เรียนมีส่วนร่วมกับการเรียนรู้มากกว่าการเรียนตามบทเรียนแบบเดิม ๆ
-                        </p>
-                    </div>
+      <!-- CONTACT SECTION -->
+      <section id="contact-view" class="hidden py-4">
+        <h2 class="text-3xl font-bold text-teal-700 text-center mb-8">ติดต่อเรา</h2>
+        <div class="max-w-2xl mx-auto bg-white rounded-xl shadow p-6">
+          <form id="contact-form" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-stone-700">ชื่อผู้ติดต่อ</label>
+              <input required class="w-full mt-1 rounded-md border-stone-300" type="text" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-stone-700">อีเมล</label>
+              <input required class="w-full mt-1 rounded-md border-stone-300" type="email" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-stone-700">ข้อความ</label>
+              <textarea required class="w-full mt-1 rounded-md border-stone-300" rows="5"></textarea>
+            </div>
+            <button class="rounded-lg bg-teal-700 text-white px-5 py-2.5 hover:bg-teal-800" type="submit">ส่งข้อความ</button>
+          </form>
+          <p id="contact-result" class="mt-4 text-teal-700 hidden">ส่งเรียบร้อย! เราจะติดต่อกลับโดยเร็ว</p>
+        </div>
+      </section>
+    </div>
+  </div>
 
-                    <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 transform hover:scale-[1.02] transition-transform duration-300">
-                        <div class="text-4xl text-teal-500 mb-4">🤝</div>
-                        <h3 class="text-xl font-bold text-stone-800 mb-2">เสริมสร้างทักษะชีวิต</h3>
-                        <p class="text-stone-600 text-base">
-                            การทำงานเป็นกลุ่มผ่านกิจกรรมช่วยพัฒนาทักษะการทำงานร่วมกับผู้อื่น การสื่อสาร และการยอมรับความคิดเห็นที่แตกต่าง
-                        </p>
-                    </div>
+  <!-- Activity Modal -->
+  <div id="activity-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 border-b">
+        <h3 id="modal-title" class="text-xl font-bold text-stone-800">รายละเอียดกิจกรรม</h3>
+        <button id="modal-close" class="p-2 rounded hover:bg-stone-100" aria-label="ปิด">✕</button>
+      </div>
+      <div class="modal-content px-6 py-4 overflow-y-auto space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-stone-50 rounded-lg p-4">
+            <p class="text-sm text-stone-500">วันที่ & เวลา</p>
+            <p id="modal-datetime" class="font-semibold"></p>
+          </div>
+          <div class="bg-stone-50 rounded-lg p-4">
+            <p class="text-sm text-stone-500">ประเภท</p>
+            <p id="modal-type" class="font-semibold"></p>
+          </div>
+        </div>
+        <div>
+          <p class="text-sm text-stone-500 mb-1">วัตถุประสงค์</p>
+          <ul id="modal-objectives" class="list-disc list-inside space-y-1"></ul>
+        </div>
+        <div>
+          <p class="text-sm text-stone-500 mb-1">คำศัพท์สำคัญ</p>
+          <div id="modal-vocab" class="flex flex-wrap gap-2"></div>
+        </div>
+      </div>
+      <div class="px-6 py-4 border-t flex flex-wrap gap-3 items-center">
+        <button id="btn-tts" class="rounded-lg border border-stone-300 px-4 py-2 hover:bg-stone-100" title="อ่านรายละเอียดด้วยเสียง">🔊 อ่านด้วยเสียง</button>
+        <button id="btn-copy" class="rounded-lg border border-stone-300 px-4 py-2 hover:bg-stone-100" title="คัดลอกรายละเอียด">📋 คัดลอก</button>
+        <div class="ml-auto"></div>
+        <button id="btn-close" class="rounded-lg bg-teal-700 text-white px-5 py-2.5 hover:bg-teal-800">ปิด</button>
+      </div>
+    </div>
+  </div>
 
-                    <div class="bg-white p-6 rounded-lg shadow-xl border-t-4 border-teal-500 transform hover:scale-[1.02] transition-transform duration-300">
-                        <div class="text-4xl text-teal-500 mb-4">🧠</div>
+  <script>
+    // ---- SAMPLE DATA ----
+    const activities = [
+      { id: 1, title: 'Story Circle – เล่าเรื่องจากภาพ', date: '2025-11-05', time: '10:00', month: '11', type: 'ภาษา', objectives: ['ฝึกเล่าเรื่องสั้น', 'ใช้ Past Tense', 'พูดต่อหน้าเพื่อน'], vocab: ['character', 'setting', 'plot', 'sequence'], location: 'Room A' },
+      { id: 2, title: 'Scavenger Hunt – คำศัพท์รอบตัว', date: '2025-11-12', time: '09:30', month: '11', type: 'ทีมเวิร์ก', objectives: ['ทำงานเป็นทีม', 'คำศัพท์สิ่งของ', 'ถาม–ตอบอย่างสุภาพ'], vocab: ['clue', 'find', 'describe', 'location'], location: 'Playground' },
+      { id: 3, title: 'Show & Tell – ของรักของฉัน', date: '2025-11-19', time: '11:00', month: '11', type: 'การนำเสนอ', objectives: ['สร้างความมั่นใจ', 'ประโยคอธิบาย', 'ตอบคำถามเพื่อน'], vocab: ['favorite', 'because', 'question', 'answer'], location: 'Room B' },
+      { id: 4, title: 'Role Play – ร้านกาแฟจำลอง', date: '2025-12-03', time: '10:30', month: '12', type: 'ภาษา', objectives: ['บทสนทนาในชีวิตจริง', 'สุภาพ & มารยาท', 'ฟังสำเนียงต่างกัน'], vocab: ['menu', 'order', 'polite', 'change'], location: 'Room A' },
+      { id: 5, title: 'Creative Writing – การ์ดอวยพร', date: '2025-12-10', time: '09:00', month: '12', type: 'สร้างสรรค์', objectives: ['ประโยคสั้นชัดเจน', 'คำอวยพร', 'ตรวจทาน'], vocab: ['wish', 'celebrate', 'message', 'greeting'], location: 'Art Corner' },
+      { id: 6, title: 'Project Fair – โปสเตอร์ความรู้', date: '2026-01-07', time: '10:00', month: '01', type: 'ทีมเวิร์ก', objectives: ['แบ่งหน้าที่', 'สรุปสาระ', 'พรีเซนต์ในที่สาธารณะ'], vocab: ['title', 'topic', 'explain', 'present'], location: 'Hall' },
+      { id: 7, title: 'Music & Lyrics – ฟังเพลงจับคำ', date: '2026-01-14', time: '09:30', month: '01', type: 'ภาษา', objectives: ['ฝึกฟังสำเนียง', 'คำสแลง', 'ตีความเนื้อเพลง'], vocab: ['chorus', 'verse', 'theme', 'rhyme'], location: 'Room C' },
+      { id: 8, title: 'Debate Mini – เห็นด้วย/ไม่เห็นด้วย', date: '2026-02-04', time: '11:00', month: '02', type: 'การนำเสนอ', objectives: ['เหตุผล & ตัวอย่าง', 'โต้แย้งอย่างสุภาพ', 'สรุปจุดยืน'], vocab: ['agree', 'disagree', 'reason', 'evidence'], location: 'Room B' },
+      { id: 9, title: 'Culture Day – สำรวจโลก', date: '2026-02-18', time: '10:00', month: '02', type: 'สร้างสรรค์', objectives: ['รู้จักวัฒนธรรม', 'เปิดใจความต่าง', 'ภาษากาย & มารยาท'], vocab: ['culture', 'tradition', 'respect', 'greeting'], location: 'Hall' },
+    ];
+
+    const typeColors = { 'ภาษา': '#14b8a6', 'สร้างสรรค์': '#f59e0b', 'ทีมเวิร์ก': '#6366f1', 'การนำเสนอ': '#ef4444' };
+
+    // ---- ELEMENTS ----
+    const sectionButtons = document.querySelectorAll('.section-btn');
+    const calendarView = document.getElementById('calendar-view');
+    const skillsView = document.getElementById('skills-view');
+    const contactView = document.getElementById('contact-view');
+    const monthFilter = document.getElementById('month-filter');
+    const resetFilterBtn = document.getElementById('reset-filter');
+    const grid = document.getElementById('activity-grid');
+
+    // Modal
+    const modal = document.getElementById('activity-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalDatetime = document.getElementById('modal-datetime');
+    const modalType = document.getElementById('modal-type');
+    const modalObjectives = document.getElementById('modal-objectives');
+    const modalVocab = document.getElementById('modal-vocab');
+    const modalClose = document.getElementById('modal-close');
+    const modalBtnClose = document.getElementById('btn-close');
+    const btnTTS = document.getElementById('btn-tts');
+    const btnCopy = document.getElementById('btn-copy');
+
+    // Contact form
+    const contactForm = document.getElementById('contact-form');
+    const contactResult = document.getElementById('contact-result');
+
+    // ---- SECTION SWITCHER ----
+    const views = { calendar: calendarView, skills: skillsView, contact: contactView };
+    sectionButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        sectionButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.getAttribute('data-section');
+        Object.values(views).forEach(v => v.classList.add('hidden'));
+        views[target].classList.remove('hidden');
+      });
+    });
+
+    // ---- FILTER SETUP ----
+    function initMonthOptions() {
+      const unique = Array.from(new Set(activities.map(a => a.month)));
+      unique.sort((a, b) => parseInt(a) - parseInt(b));
+      unique.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m; opt.textContent = m;
+        monthFilter.appendChild(opt);
+      });
+    }
+
+    // ---- RENDER TIMELINE ----
+    function renderTimeline(month = 'all') {
+      grid.innerHTML = '';
+      const filtered = month === 'all' ? activities : activities.filter(a => a.month === month);
+      if (!filtered.length) {
+        grid.innerHTML = '<p class="text-stone-500">ไม่มีรายการในเดือนนี้</p>';
+        updateDonut([]);
+        return;
+      }
+      filtered
+        .sort((a,b) => new Date(a.date+"T"+a.time) - new Date(b.date+"T"+b.time))
+        .forEach((act, idx) => {
+          const side = (idx % 2 === 0) ? 'left' : 'right';
+          const item = document.createElement('div');
+          item.className = `timeline-item ${side}`;
+          item.innerHTML = `
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <div class="bg-white rounded-xl shadow p-5 hover:shadow-lg transition cursor-pointer border border-stone-200" data-id="${act.id}">
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 class="text-lg font-bold text-stone-800">${act.title}</h4>
+                    <p class="text-sm text-stone-500">${formatDate(act.date)} • ${act.time} • ${act.location}</p>
+                  </div>
+                  <span class="text-xs px-2 py-1 rounded-full border" style="border-color:${typeColors[act.type]}; color:${typeColors[act.type]};">${act.type}</span>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  ${act.vocab.slice(0,3).map(v => `<span class='text-xs bg-stone-100 px-2 py-1 rounded'>${v}</span>`).join('')}
+                </div>
+              </div>
+            </div>`;
+          grid.appendChild(item);
+        });
+
+      // Card click -> open modal
+      grid.querySelectorAll('[data-id]').forEach(card => {
+        card.addEventListener('click', () => openModal(parseInt(card.getAttribute('data-id'))));
+      });
+
+      updateDonut(filtered);
+    }
+
+    function formatDate(str) {
+      const d = new Date(str);
+      return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    // ---- DONUT CHART ----
+    let donutChart;
+    function updateDonut(list) {
+      const counts = {};
+      list.forEach(a => counts[a.type] = (counts[a.type]||0) + 1);
+      const labels = Object.keys(counts);
+      const data = Object.values(counts);
+      const colors = labels.map(l => typeColors[l] || '#94a3b8');
+
+      const ctx = document.getElementById('donutChart').getContext('2d');
+      if (donutChart) donutChart.destroy();
+      donutChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 1 }] },
+        options: { plugins: { legend: { position: 'bottom' } }, cutout: '60%' }
+      });
+    }
+
+    // ---- MODAL ----
+    function openModal(id) {
+      const a = activities.find(x => x.id === id);
+      if (!a) return;
+      modalTitle.textContent = a.title;
+      modalDatetime.textContent = `${formatDate(a.date)} • ${a.time} • ${a.location}`;
+      modalType.textContent = a.type;
+      modalObjectives.innerHTML = a.objectives.map(o => `<li>${o}</li>`).join('');
+      modalVocab.innerHTML = a.vocab.map(v => `<span class='text-sm bg-teal-50 text-teal-800 px-2 py-1 rounded border border-teal-200'>${v}</span>`).join('');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeModal() {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    modalClose.addEventListener('click', closeModal);
+    modalBtnClose.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    // ---- TTS (Web Speech API) ----
+    btnTTS.addEventListener('click', () => {
+      if (!('speechSynthesis' in window)) { alert('เบราว์เซอร์นี้ยังไม่รองรับการอ่านด้วยเสียง'); return; }
+      const text = `${modalTitle.textContent}. ${modalDatetime.textContent}. ประเภท: ${modalType.textContent}. วัตถุประสงค์: ` +
+        Array.from(modalObjectives.querySelectorAll('li')).map(li => li.textContent).join(', ');
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = 'en-US'; // สามารถสลับเป็น 'th-TH' ได้ตามต้องการ
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(msg);
+    });
+
+    // ---- COPY DETAILS ----
+    btnCopy.addEventListener('click', async () => {
+      const text = [
+        modalTitle.textContent,
+        modalDatetime.textContent,
+        `ประเภท: ${modalType.textContent}`,
+        'วัตถุประสงค์:',
+        ...Array.from(modalObjectives.querySelectorAll('li')).map(li => '• ' + li.textContent),
+        'คำศัพท์: ' + Array.from(modalVocab.querySelectorAll('span')).map(s => s.textContent).join(', ')
+      ].join('\\n');
+      try { await navigator.clipboard.writeText(text); alert('คัดลอกเรียบร้อย'); } catch { alert('ไม่สามารถคัดลอกได้'); }
+    });
+
+    // ---- CONTACT FORM (demo) ----
+    contactForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      contactResult.classList.remove('hidden');
+      contactForm.reset();
+    });
+
+    // ---- INIT ----
+    initMonthOptions();
+    renderTimeline('all');
+
+    monthFilter.addEventListener('change', (e) => {
+      renderTimeline(e.target.value);
+    });
+
+    resetFilterBtn.addEventListener('click', () => {
+      monthFilter.value = 'all';
+      renderTimeline('all');
+    });
+  </script>
+</body>
+</html>
